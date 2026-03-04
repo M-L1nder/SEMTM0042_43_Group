@@ -74,7 +74,7 @@ class LineSensors_c {
 
       // Ensure that the IR LEDs are on
       // for line sensing
-      pinMode( EMIT_PIN, OUTPUT );
+      pinMode( EMIT_PIN, INPUT );
       digitalWrite( EMIT_PIN, HIGH );
 
       // Configure the line sensor pins

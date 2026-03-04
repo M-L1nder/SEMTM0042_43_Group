@@ -1,7 +1,5 @@
 // Code Used on ML Robot and ?? Robot
-// Just attempting to output IR forwards to be detectable by Follower
-// IR to start after button A pressed
-
+// Just attempting to output IR from bump sensors to be detectable by Follower
 #include "Motors.h"
 #include "LineSensors.h"
 
