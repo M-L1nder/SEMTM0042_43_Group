@@ -1,15 +1,15 @@
 // Code Used on ML Robot and ?? Robot
 // Just attempting to measure IR using Line sensors on follower
+
 #include "PID.h"
 #include "Motors.h"
 #include "BumpSensors.h"
 #include "Encoders.h"
 
 Motors_c motors;
-BumpSensors_c bump_sensors;
 PID_c left_pid;             // To control the left motor
 PID_c right_pid;            // To control the right motor
-
+BumpSensors_c bump_sensors;
 
 unsigned long speed_est_ts; // timestamp for speed estimation - used for pose updates also
 #define SPEED_EST_MS 10     // 10ms
@@ -94,10 +94,10 @@ void loop() {
     if (diff_cal > 0) {
       // Right calibrated > Left calibrated
       // Right side sees weaker IR, so beacon is more to the left
-      turn_target = +TURN_TARGET;
+      turn_target = -TURN_TARGET;
     }
     else {
-      turn_target = -TURN_TARGET;
+      turn_target = +TURN_TARGET;
     }
 
     float l_pwm = left_pid.update(turn_target, left_speed);
@@ -107,7 +107,9 @@ void loop() {
 
   Serial.print(100 * L_Cal);
   Serial.print(",");
-  Serial.println(100 * R_Cal);
+  Serial.print(100 * R_Cal);
+  Serial.print(",");
+  Serial.println(100 * diff_cal);
 
 
 }
