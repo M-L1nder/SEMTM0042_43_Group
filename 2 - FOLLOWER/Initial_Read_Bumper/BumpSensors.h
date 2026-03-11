@@ -163,18 +163,6 @@ class BumpSensors_c {
       }
     }
 
-    // -----------------------------
-    // Helper: reset calibration arrays
-    // -----------------------------
-    void resetCalibration() {
-      for (int sensor = 0; sensor < BUMP_NUM_SENSORS; sensor++) {
-        minimum[sensor] = 999999;
-        maximum[sensor] = 0;
-        range[sensor] = 1;
-        scaling[sensor] = 1;
-        bumpcalibrated[sensor] = 0;
-      }
-    }
 
     // -----------------------------
     // Helper: update min/max from latest readings
