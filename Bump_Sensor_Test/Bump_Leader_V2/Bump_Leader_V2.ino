@@ -17,7 +17,7 @@
 // 4. Press leader button A:
 //    - leader enters TARGET_BEACON mode
 //    - beacon turns ON
-//    - leader stays still
+//    - leader stays still during this 
 //
 // 5. Press follower button A:
 //    - follower starts SAMPLING_TARGET
