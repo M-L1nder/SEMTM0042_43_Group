@@ -4,13 +4,14 @@
 #include "Encoders.h"
 #include "oled.h"
 #include "Kinematics.h"
+
 Kinematics_c pose;
 OLED_c display(1, 30, 0, 17, 13);   // clk, mosi, rst, dc, cs
 
 const bool USE_OLED = true;
 
 unsigned long oled_ts = 0;
-#define OLED_UPDATE_MS 400   // fairly responsive without flicker
+#define OLED_UPDATE_MS 400
 unsigned long pose_ts = 0;
 const uint32_t POSE_MS = 20;
 
@@ -18,14 +19,14 @@ Motors_c motors;
 BumpSensors_c bump_sensors;
 PID_c left_pid;
 PID_c right_pid;
+
 // -------------------- Logging -------------------
 const uint32_t LOG_MS = 50;
 const int LOG_SIZE = 100;
 
 struct LogEntry {
-  uint16_t x_centi;   // stores (x + 400) * 100 Should this be x-400 instead?
-  uint16_t y_centi;   // stores (y + 300) * 100
-  //  int16_t theta_mrad;
+  uint16_t x_centi;
+  uint16_t y_centi;
   uint32_t t_ms;
 };
 
@@ -60,6 +61,7 @@ float last_speed_e1 = 0.0f;
 float L = 0.0f;
 float R = 0.0f;
 float total = 0.0f;
+float bearingSignal = 0.0f;   // (L-R)/(L+R), filtered
 
 // baseline raw discharge times (beacon OFF)
 float bump_baseline[BUMP_NUM_SENSORS];
@@ -69,25 +71,30 @@ float beaconThreshold = 0.0f;
 // -------------------- TARGET SAMPLE --------------------
 const uint32_t TARGET_SETTLE_MS = 300;
 float targetTotal = 0.0f;
+float targetBearing = 0.0f;
 float lowerThreshold = 0.0f;
 float upperThreshold = 0.0f;
 
 float targetSampleSum = 0.0f;
+float targetBearingSum = 0.0f;
 int targetSampleCount = 0;
 float minTotalSeen = 100000.0f;
 float maxTotalSeen = -100000.0f;
 
 // -------------------- TUNING --------------------
 const float TARGET_DEADBAND = 2.0f;
-// target capture time
 const uint32_t TARGET_SAMPLE_TIME_MS = 2000;
-
-// after target capture, wait for beacon to disappear, then reappear for run start
 const uint32_t LOST_TIMEOUT_MS = 200;
 
 // drive control
-const float MAX_FWD_SPEED_DEMAND = 0.45f;  // should be a bit above leader speed magnitude
-const float SPEED_GAIN = 0.4f;           // converts signal deficit -> speed demand
+const float MAX_FWD_SPEED_DEMAND = 0.45f;
+const float SPEED_GAIN = 0.4f;
+
+// steering control
+const float MAX_STEER_DEMAND = 0.06f;
+const float STEER_GAIN = 0.25f;        // start modestly, then tune
+const float BEARING_EPS = 0.5f;       // avoid division by tiny total
+const float BEARING_FILTER_ALPHA = 0.3f;
 
 // threshold band built from observed target variation
 const float BAND_MARGIN_FRACTION = 0.10f;
@@ -131,10 +138,9 @@ void logPoseIfNeeded() {
 
   if (logIndex >= LOG_SIZE) return;
 
-  logBuffer[logIndex].x_centi = (uint16_t)((pose.x) * 100.0f); // expected robot to be at positions in range between 0-> 300
-  logBuffer[logIndex].y_centi = (uint16_t)((pose.y + 300.0f) * 100.0f); // expected robot to be -300->300 maximum
+  logBuffer[logIndex].x_centi = (uint16_t)((pose.x) * 100.0f);
+  logBuffer[logIndex].y_centi = (uint16_t)((pose.y + 300.0f) * 100.0f);
   logBuffer[logIndex].t_ms = millis();
-  //  logBuffer[logIndex].theta_mrad = (int16_t)(pose.theta * 1000.0f);
   logIndex++;
 }
 
@@ -166,6 +172,8 @@ void drawFollowerOLED()
   display.gotoXY(0, 1);
   display.print("T:");
   display.print(total, 1);
+  display.print(" B:");
+  display.print(bearingSignal, 2);
 }
 
 float clampFloat(float x, float lo, float hi) {
@@ -211,7 +219,6 @@ void speedcalc(unsigned long elapsed_time) {
   last_speed_e1 = left_speed;
 }
 
-
 // Convert raw discharge time into a positive signal.
 // More IR -> smaller raw reading -> bigger signal.
 float readingToSignal(float reading, float baseline) {
@@ -225,6 +232,12 @@ float readingToSignal(float reading, float baseline) {
   return x;
 }
 
+float computeBearingSignal(float l_sig, float r_sig) {
+  float total_now = l_sig + r_sig;
+  if (total_now < BEARING_EPS) return 0.0f;
+  return (l_sig - r_sig) / total_now;
+}
+
 void updateBumpSignals() {
   bump_sensors.readSensorsDigital();
 
@@ -232,8 +245,10 @@ void updateBumpSignals() {
   R = readingToSignal(bump_sensors.readings[1], bump_baseline[1]);
 
   float total_temp = L + R;
-
   total = 0.7f * total + 0.3f * total_temp;
+
+  float bearing_now = computeBearingSignal(L, R);
+  bearingSignal = (1.0f - BEARING_FILTER_ALPHA) * bearingSignal + BEARING_FILTER_ALPHA * bearing_now;
 }
 
 void measureBumpBaseline() {
@@ -270,24 +285,25 @@ void measureBumpBaseline() {
   }
 
   baselineTotal /= 50.0f;
-
-  //Serial.print("Baseline TOTAL = ");
-  //Serial.println(baselineTotal);
 }
 
 void startTargetSampling() {
   targetSampleStart = millis();
   targetSampleSum = 0.0f;
+  targetBearingSum = 0.0f;
   targetSampleCount = 0;
   minTotalSeen = 100000.0f;
   maxTotalSeen = -100000.0f;
   total = 0.0f;
+  bearingSignal = 0.0f;
 }
 
 void finishTargetSampling() {
   if (targetSampleCount < 1) targetSampleCount = 1;
 
   targetTotal = targetSampleSum / (float)targetSampleCount;
+  targetBearing = targetBearingSum / (float)targetSampleCount;
+
   beaconThreshold = baselineTotal + 0.4f * (targetTotal - baselineTotal);
 
   float observedSpread = maxTotalSeen - minTotalSeen;
@@ -297,24 +313,29 @@ void finishTargetSampling() {
   lowerThreshold = targetTotal - bandMargin;
   upperThreshold = targetTotal + bandMargin;
 
-  //  Serial.println("target sampling done");
-  //  Serial.print("targetTotal,"); Serial.println(targetTotal);
-  //  Serial.print("lowerThreshold,"); Serial.println(lowerThreshold);
-  //  Serial.print("upperThreshold,"); Serial.println(upperThreshold);
+  // Debug if needed:
+  // Serial.print("targetTotal="); Serial.println(targetTotal);
+  // Serial.print("targetBearing="); Serial.println(targetBearing, 4);
 }
 
-void driveAtDemand(float demandSpeed) {
-  demandSpeed = clampFloat(demandSpeed, 0.0f, MAX_FWD_SPEED_DEMAND);
-  demandSpeed *= FOLLOW_SIGN;
+void driveSteered(float driveDemand, float steerDemand) {
+  driveDemand = clampFloat(driveDemand, 0.0f, MAX_FWD_SPEED_DEMAND);
+  steerDemand = clampFloat(steerDemand, -MAX_STEER_DEMAND, MAX_STEER_DEMAND);
 
-  float l_pwm_f = left_pid.update(demandSpeed, left_speed);
-  float r_pwm_f = right_pid.update(demandSpeed, right_speed);
+  driveDemand *= FOLLOW_SIGN;
+  steerDemand *= FOLLOW_SIGN;
+
+  float leftDemand  = driveDemand - steerDemand;
+  float rightDemand = driveDemand + steerDemand;
+
+  float l_pwm_f = left_pid.update(leftDemand, left_speed);
+  float r_pwm_f = right_pid.update(rightDemand, right_speed);
 
   int l_pwm = clampInt((int)l_pwm_f, -PWM_MAX_ABS, PWM_MAX_ABS);
   int r_pwm = clampInt((int)r_pwm_f, -PWM_MAX_ABS, PWM_MAX_ABS);
 
-  l_pwm = applyPwmFloor(l_pwm, demandSpeed, PWM_FLOOR_FWD);
-  r_pwm = applyPwmFloor(r_pwm, demandSpeed, PWM_FLOOR_FWD);
+  l_pwm = applyPwmFloor(l_pwm, leftDemand, PWM_FLOOR_FWD);
+  r_pwm = applyPwmFloor(r_pwm, rightDemand, PWM_FLOOR_FWD);
 
   motors.setPWM(l_pwm, r_pwm);
 }
@@ -328,9 +349,7 @@ void setup() {
   setupEncoder0();
   setupEncoder1();
 
-  // Faster timeout helps responsiveness
   bump_sensors.timeout_us = 2500;
-
   pinMode(BUTTON_A_PIN, INPUT_PULLUP);
 
   left_pid.initialise(DRIVE_KP, DRIVE_KI, DRIVE_KD);
@@ -342,22 +361,17 @@ void setup() {
   last_e1 = count_e1;
   speed_est_ts = millis();
 
-  // Baseline must be measured with beacon OFF
-  //  Serial.println("Measure baseline: keep leader beacon OFF");
   measureBumpBaseline();
 
-  //  Serial.println("Place leader at desired distance, beacon ON, then press follower button A");
   pose.initialise(0.0f, 0.0f, 0.0f);
   pose_ts = millis();
   robotstate = WAITING_FOR_TARGET_BUTTON;
-  //  drawFollowerOLED();
   oled_ts = millis();
   lastLoop = millis();
 }
 
 // -------------------- LOOP --------------------
 void loop() {
-
   unsigned long now = millis();
 
   if (now - speed_est_ts >= SPEED_EST_MS) {
@@ -386,7 +400,6 @@ void loop() {
           Serial.print(y);
           Serial.print(",");
           Serial.println(logBuffer[i].t_ms);
-          //          Serial.println(logBuffer[i].theta_mrad / 1000.0f);
         }
         lastButtonState = buttonState;
         return;
@@ -395,15 +408,15 @@ void loop() {
         startTargetSampling();
         robotstate = SAMPLING_TARGET;
       }
-
     }
   }
+
   if (robotstate == SAMPLING_TARGET) {
     stopRobot();
 
-    // accumulate only while beacon is actually present and time has settled
     if ((millis() - targetSampleStart) > TARGET_SETTLE_MS && total > beaconThreshold) {
       targetSampleSum += total;
+      targetBearingSum += bearingSignal;
       targetSampleCount++;
 
       if (total < minTotalSeen) minTotalSeen = total;
@@ -411,7 +424,6 @@ void loop() {
     }
 
     if (millis() - targetSampleStart >= TARGET_SAMPLE_TIME_MS) {
-      // Only proceed if actually counted 20 samples
       if (targetSampleCount < 20) {
         stopRobot();
         robotstate = WAITING_FOR_TARGET_BUTTON;
@@ -424,9 +436,9 @@ void loop() {
   else if (robotstate == WAITING_FOR_BEACON_OFF) {
     stopRobot();
 
-    // after target capture, wait until beacon is turned off
     if (total < beaconThreshold) {
       total = 0.0f;
+      bearingSignal = 0.0f;
       robotstate = WAITING_FOR_BEACON_ON;
     }
   }
@@ -441,14 +453,13 @@ void loop() {
       logIndex = 0;
       loggingActive = true;
       logReadyToDump = false;
-      lastLogTime = millis() - LOG_MS;   // immediate first sample
+      lastLogTime = millis() - LOG_MS;
 
       robotstate = FOLLOWING;
     }
   }
   else if (robotstate == FOLLOWING) {
     if (total < beaconThreshold) {
-      // beacon lost: give it a short grace period, then stop
       if (beaconLostStart == 0) beaconLostStart = millis();
 
       if (millis() - beaconLostStart > LOST_TIMEOUT_MS) {
@@ -456,67 +467,47 @@ void loop() {
         loggingActive = false;
         logReadyToDump = true;
         robotstate = WAITING_FOR_BEACON_ON;
-
       } else {
-        driveAtDemand(0.0f);
+        driveSteered(0.0f, 0.0f);
       }
     }
     else {
       beaconLostStart = 0;
 
+      // ---------------- Distance control ----------------
+      float totalError = targetTotal - total;
       float desiredDrive = 0.0f;
 
-      // For bump signals: smaller total = farther away / weaker beacon
-      // So drive forward only if we are BELOW the target band.
-      //      if (total < targetTotal - TARGET_DEADBAND) {
-      //        desiredDrive = SPEED_GAIN * ((targetTotal - TARGET_DEADBAND) - total);
-      //      } else {
-      //        desiredDrive = 0.0f;
-      //      }
-
-      float error = targetTotal - total;
-
-      if (error > TARGET_DEADBAND) {
-        desiredDrive = SPEED_GAIN * (error - TARGET_DEADBAND);
+      if (totalError > TARGET_DEADBAND) {
+        desiredDrive = SPEED_GAIN * (totalError - TARGET_DEADBAND);
       } else {
         desiredDrive = 0.0f;
       }
-      //      if (total < lowerThreshold) {
-      //        desiredDrive = SPEED_GAIN * (lowerThreshold - total);
-      //      } else {
-      //        desiredDrive = 0.0f;
-      //      }
 
       desiredDrive = clampFloat(desiredDrive, 0.0f, MAX_FWD_SPEED_DEMAND);
-
-      // no smoothing, same as your good line-sensor version
       smoothedDrive = 0.8f * smoothedDrive + 0.2f * desiredDrive;
 
-      driveAtDemand(smoothedDrive);
+      // ---------------- Bearing / lateral control ----------------
+      float steerError = targetBearing - bearingSignal;
+      float desiredSteer = STEER_GAIN * steerError;
+      desiredSteer =-1* clampFloat(desiredSteer, -MAX_STEER_DEMAND, MAX_STEER_DEMAND);
+
+      driveSteered(smoothedDrive, desiredSteer);
     }
   }
 
   lastButtonState = buttonState;
-  //
-  //  Serial.print(total);
-  //  Serial.print(",");
-  //  Serial.print(targetTotal);
-  //  Serial.print(",");
-  //  Serial.print(lowerThreshold);
-  //  Serial.print(",");
-  //  Serial.print(upperThreshold);
-  //  Serial.print(",");
-  //  Serial.print(smoothedDrive);
-  //  Serial.print(",");
-  //  Serial.print(left_speed);
-  //  Serial.print(",");
-  //  Serial.print(right_speed);
-  //  Serial.print(",");
-  //  Serial.print(L);
-  //  Serial.print(",");
-  //  Serial.print(R);
-  //  Serial.print(",");
-  //  Serial.println((int)robotstate);
+
+  // Debug if needed:
+  // Serial.print("L="); Serial.print(L);
+  // Serial.print(",R="); Serial.print(R);
+  // Serial.print(",T="); Serial.print(total);
+  // Serial.print(",B="); Serial.print(bearingSignal,4);
+  // Serial.print(",TB="); Serial.print(targetBearing,4);
+  // Serial.print(",state="); Serial.println((int)robotstate);
+  Serial.print("targetBearing=");
+Serial.println(targetBearing, 4);
+
   if (USE_OLED && millis() - oled_ts >= OLED_UPDATE_MS) {
     oled_ts = millis();
     drawFollowerOLED();

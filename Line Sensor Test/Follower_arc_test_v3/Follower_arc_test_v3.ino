@@ -182,7 +182,7 @@ int applyPwmFloor(int pwm, float demand_speed, int floorVal) {
 // ------------------------------------------------------------------------ // 
 // 4. Returns the shortest angle, wrapped to +/- PI from robot to target
 float angleDiff(float target, float source) {
-  return atan2f(sinf(target - source), cosf(target - source));
+return atan2f(sinf(target - source), cosf(target - source));
 }
 
 // ------------------------------------------------------------------------ // 

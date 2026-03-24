@@ -16,7 +16,7 @@ const int BUTTON_A_PIN = 14;
 
 // target coordinates
 float TARGET_X = -300.0f; 
-float TARGET_Y = -100.0f; 
+float TARGET_Y = -000.0f; 
 bool travelling = false;
 
 const float DIST_TOL = 5.0; 
