@@ -30,7 +30,7 @@ const float count_per_rev = 358.3;   // From documentation - correct from testin
 
 // Wheel radius in measurement is 16mm and seperation ~ 85mm wheel to wheel these two calibrations match approximately
 const float wheel_radius  = 15.0 * (111.76 / 101.76) * (100.0 / 103.85) * (105 / 102.78); //Comes to 16.2mm - ORIGINAL Value 15.0.
-const float wheel_sep     = 42.607;  // mm, from centre of robot to wheel centre
+const float wheel_sep     = 42.5; //42.607*177/180*356/360*180.4/180;  // mm, from centre of robot to wheel centre
 
 // Notes to self when going around all points - without and with the calibration turns for the sensors - as robot turns anticlockwise and clockwise
 // Overall displacement can be narrowed down to under and overturning as one direction of turn is dominant

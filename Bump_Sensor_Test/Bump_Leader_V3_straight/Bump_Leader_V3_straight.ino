@@ -110,7 +110,7 @@ const float REVERSE_SPEED_DEMAND = -0.35;
 
 // target coordinates
 float TARGET_X = -300.0f;
-float TARGET_Y = -200.0f;
+float TARGET_Y = -000.0f;
 bool travelling = false;
 
 const float DIST_TOL = 3.0;

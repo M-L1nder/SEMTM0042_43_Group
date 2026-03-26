@@ -8,7 +8,7 @@
 Kinematics_c pose;
 OLED_c display(1, 30, 0, 17, 13);   // clk, mosi, rst, dc, cs
 
-const bool USE_OLED = true;
+const bool USE_OLED = false;
 
 unsigned long oled_ts = 0;
 #define OLED_UPDATE_MS 400
@@ -91,8 +91,8 @@ const float MAX_FWD_SPEED_DEMAND = 0.45f;
 const float SPEED_GAIN = 0.4f;
 
 // steering control
-const float MAX_STEER_DEMAND = 0.06f;
-const float STEER_GAIN = 0.25f;        // start modestly, then tune
+const float MAX_STEER_DEMAND = 0.1f;
+const float STEER_GAIN = 0.15f;        // start modestly, then tune
 const float BEARING_EPS = 0.5f;       // avoid division by tiny total
 const float BEARING_FILTER_ALPHA = 0.3f;
 
@@ -488,11 +488,34 @@ void loop() {
       smoothedDrive = 0.8f * smoothedDrive + 0.2f * desiredDrive;
 
       // ---------------- Bearing / lateral control ----------------
-      float steerError = targetBearing - bearingSignal;
-      float desiredSteer = STEER_GAIN * steerError;
-      desiredSteer =-1* clampFloat(desiredSteer, -MAX_STEER_DEMAND, MAX_STEER_DEMAND);
+      float desiredSteer = 0.0f;
+
+      if (total > 0.5f * targetTotal) {
+        float steerError = bearingSignal - targetBearing;   // flipped sign directly
+
+        if (fabs(steerError) < 0.05f) {
+          steerError = 0.0f;
+        }
+
+        float steerScale = total / targetTotal;
+        steerScale = clampFloat(steerScale, 0.0f, 1.0f);
+
+        desiredSteer = STEER_GAIN * steerError * steerScale;
+      }
+
+      float steerLimit = 0.25f * smoothedDrive + 0.01f;
+      if (steerLimit > MAX_STEER_DEMAND) steerLimit = MAX_STEER_DEMAND;
+
+      desiredSteer = clampFloat(desiredSteer, -steerLimit, steerLimit);
 
       driveSteered(smoothedDrive, desiredSteer);
+
+      //      // ---------------- Bearing / lateral control ----------------
+      //      float steerError = targetBearing - bearingSignal;
+      //      float desiredSteer = STEER_GAIN * steerError;
+      //      desiredSteer =-1* clampFloat(desiredSteer, -MAX_STEER_DEMAND, MAX_STEER_DEMAND);
+      //
+      //      driveSteered(smoothedDrive, desiredSteer);
     }
   }
 
@@ -505,8 +528,8 @@ void loop() {
   // Serial.print(",B="); Serial.print(bearingSignal,4);
   // Serial.print(",TB="); Serial.print(targetBearing,4);
   // Serial.print(",state="); Serial.println((int)robotstate);
-  Serial.print("targetBearing=");
-Serial.println(targetBearing, 4);
+  //  Serial.print("targetBearing=");
+  //Serial.println(targetBearing, 4);
 
   if (USE_OLED && millis() - oled_ts >= OLED_UPDATE_MS) {
     oled_ts = millis();
