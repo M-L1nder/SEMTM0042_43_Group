@@ -109,7 +109,7 @@ const float REVERSE_SPEED_DEMAND = -0.35;
 
 // target coordinates
 float TARGET_X = -300.0f;
-float TARGET_Y = 0.0f;
+float TARGET_Y = -00.0f;
 bool travelling = false;
 
 const float DIST_TOL = 5.0;
@@ -128,13 +128,16 @@ const int PWM_MAX_ABS = 60;
 const int PWM_FLOOR = 18;
 
 // -------------------- PID GAINS --------------------
-const float DRIVE_KP = 15.0;
-const float DRIVE_KI = 0.1;
-const float DRIVE_KD = 0.0;
+// pid settings & steering
+const float DRIVE_KP = 60.0f;
+const float DRIVE_KI = 0.02f;
+const float DRIVE_KD = 0.001f;
+
 const float HEAD_KP = 2.0f;
 const float HEAD_KI = 0.0f;
 const float HEAD_KD = 0.0f;
-const float REVERSE_SPEED = 0.35f;
+
+const float REVERSE_SPEED = 0.45f;
 const float MAX_STEER = 0.04f;
 // -------------------- STATE --------------------
 enum LeaderState {
@@ -307,7 +310,7 @@ bool checkTravelReverse() {
   //  float heading_error = angleDiff(desired_heading, pose.theta + PI);
   float rev = REVERSE_SPEED;
   float head_corr = 2.0f * heading_pid.update(0.0f, heading_error);
-  float steer_limit = 0.07f * rev;
+  float steer_limit = 0.15f * rev;
   head_corr = clampFloat(head_corr, -steer_limit, steer_limit);
 
   if (dist < 50.0f) {

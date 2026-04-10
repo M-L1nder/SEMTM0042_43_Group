@@ -91,7 +91,7 @@ const float MAX_FWD_SPEED_DEMAND = 0.45f;
 const float SPEED_GAIN = 0.4f;
 
 // lateral / bearing control
-const float STEER_GAIN = 0.12f;
+const float STEER_GAIN = 0.25f;
 const float MAX_STEER_DEMAND = 0.035f;
 const float BEARING_DEADBAND = 0.05f;
 const float BEARING_EPS = 0.5f;
