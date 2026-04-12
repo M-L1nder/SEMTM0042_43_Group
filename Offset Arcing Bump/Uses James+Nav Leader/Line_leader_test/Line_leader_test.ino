@@ -21,7 +21,7 @@ Kinematics_c pose;
 
 // logging
 const uint32_t LOG_MS = 50;
-const int LOG_SIZE = 100;
+const int LOG_SIZE = 200;
 
 struct LogEntry {
   uint32_t t_ms;
@@ -53,7 +53,7 @@ bool lastButtonBState = HIGH;
 //==========================================================================//
 // target coordinates
 float TARGET_X = -300.0f;
-float TARGET_Y = -100.0f;
+float TARGET_Y = 00.0f;
 bool travelling = false;
 
 const float DIST_TOL = 5.0;
@@ -91,7 +91,7 @@ const float HEAD_KP = 2.0f;
 const float HEAD_KI = 0.0f;
 const float HEAD_KD = 0.0f;
 
-const float REVERSE_SPEED = 0.45f;
+const float REVERSE_SPEED = 0.2f;
 const float MAX_STEER = 0.04f;
 
 //==========================================================================//
@@ -166,7 +166,7 @@ float angleDiff(float target) {
 //5. -----------------------------------------------------------------------//
 void beaconOn(){
   pinMode(EMIT_PIN, OUTPUT);
-  digitalWrite(EMIT_PIN, LOW);
+  digitalWrite(EMIT_PIN, HIGH);
 }
 
 //6. -----------------------------------------------------------------------//
@@ -278,7 +278,7 @@ bool checkTravelReverse() {
   float dist = sqrtf(dx * dx + dy * dy);
 
   // Stop if within 5 mm of target, OR x < -305, OR y < -105
-  if (dist <= DIST_TOL || pose.x < -305.0f || pose.y < -105.0f) {
+  if (dist <= DIST_TOL || pose.x < -305.0f ) {
     motors.setPWM(0, 0);
     travelling = false;
     left_pid.reset();

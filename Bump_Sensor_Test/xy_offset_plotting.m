@@ -7,7 +7,11 @@
 
 clear; clc; close all;
 
-filename = 'XY_offset2.xlsx';   % <-- change this
+% filename = 'XY_offset2.xlsx';   % <-- change this
+
+filename = 'XY_OFFSET_line.xlsx';   % <-- change this
+
+
 [~, sheetNames] = xlsfinfo(filename);
 
 all_x0 = [];
@@ -140,42 +144,42 @@ for s = 1:length(sheetNames)
     figure(findobj('Name','Error Y vs Time'));
     plot(t_common, err_y, 'DisplayName', sheet);
 
-%     % Optional per-sheet debug plots
-%     figure('Name',['Debug_' sheet]);
-% 
-%     % Flip leader x sign
-%     xL_i_flipped = -xL_i;
-% 
-%     subplot(4,1,1);
-%     plot(t_common, xL_i_flipped, 'LineWidth', 1.2); hold on;
-%     plot(t_common, xF_i, 'LineWidth', 1.2);
-%     grid on;
-%     ylabel('x (mm)');
-%     legend('Leader x (flipped)','Follower x');
-%     title(['Raw x traces (leader flipped): ' sheet]);
-% 
-%     subplot(4,1,2);
-%     plot(t_common, yL_i, 'LineWidth', 1.2); hold on;
-%     plot(t_common, yF_i, 'LineWidth', 1.2);
-%     grid on;
-%     ylabel('y (mm)');
-%     legend('Leader y','Follower y');
-%     title('Raw y traces');
-% 
-%     subplot(4,1,3);
-%     plot(t_common, sep_x, 'LineWidth', 1.2); hold on;
-%     yline(x0, '--k');
-%     grid on;
-%     ylabel('sep_x (mm)');
-%     legend('Actual sep_x','Desired x0');
-% 
-%     subplot(4,1,4);
-%     plot(t_common, sep_y, 'LineWidth', 1.2); hold on;
-%     yline(y0, '--k');
-%     grid on;
-%     xlabel('Time relative to end (ms)');
-%     ylabel('sep_y (mm)');
-%     legend('Actual sep_y','Desired y0');
+    % % Optional per-sheet debug plots
+    % figure('Name',['Debug_' sheet]);
+    % 
+    % % Flip leader x sign
+    % xL_i_flipped = -xL_i;
+    % 
+    % subplot(4,1,1);
+    % plot(t_common, xL_i_flipped, 'LineWidth', 1.2); hold on;
+    % plot(t_common, xF_i, 'LineWidth', 1.2);
+    % grid on;
+    % ylabel('x (mm)');
+    % legend('Leader x (flipped)','Follower x');
+    % title(['Raw x traces (leader flipped): ' sheet]);
+    % 
+    % subplot(4,1,2);
+    % plot(t_common, yL_i, 'LineWidth', 1.2); hold on;
+    % plot(t_common, yF_i, 'LineWidth', 1.2);
+    % grid on;
+    % ylabel('y (mm)');
+    % legend('Leader y','Follower y');
+    % title('Raw y traces');
+    % 
+    % subplot(4,1,3);
+    % plot(t_common, sep_x, 'LineWidth', 1.2); hold on;
+    % yline(x0, '--k');
+    % grid on;
+    % ylabel('sep_x (mm)');
+    % legend('Actual sep_x','Desired x0');
+    % 
+    % subplot(4,1,4);
+    % plot(t_common, sep_y, 'LineWidth', 1.2); hold on;
+    % yline(y0, '--k');
+    % grid on;
+    % xlabel('Time relative to end (ms)');
+    % ylabel('sep_y (mm)');
+    % legend('Actual sep_y','Desired y0');
 end
 
 figure(findobj('Name','Error X vs Time'));

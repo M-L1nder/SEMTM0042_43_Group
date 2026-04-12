@@ -265,7 +265,7 @@ class BumpSensors_c {
     void clearSampleReady() {
       sample_ready = false;
     }
-}; // End of bumpsensor class defintion
+}; // End of LineSensor_c class defintion
 
 
 

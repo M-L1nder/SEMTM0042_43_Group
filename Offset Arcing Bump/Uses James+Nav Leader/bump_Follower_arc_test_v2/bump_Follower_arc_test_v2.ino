@@ -9,7 +9,7 @@
 #include "PID.h"
 #include "Encoders.h"
 #include "Kinematics.h"
-#include <math.h>
+
 
 Motors_c motors;
 BumpSensors_c bump_sensors;
@@ -151,7 +151,7 @@ RobotState robotState = WAITING_FOR_TARGET_BUTTON;
 //==========================================================================//
 
 const uint32_t LOG_MS = 50;
-const int LOG_SIZE = 200;
+const int LOG_SIZE = 100;
 
 struct LogEntry {
   uint32_t t_ms;
@@ -404,12 +404,12 @@ void finishTargetSampling()
 
   lowerThreshold = targetTotal - bandMargin;
   upperThreshold = targetTotal + bandMargin;
-
-  Serial.println("target sampling done");
-  Serial.print("targetTotal,"); Serial.println(targetTotal);
-  Serial.print("lowerThreshold,"); Serial.println(lowerThreshold);
-  Serial.print("upperThreshold,"); Serial.println(upperThreshold);
-  Serial.print("beaconThreshold,"); Serial.println(beaconThreshold);  
+ // Changedto flash memory
+  Serial.println(F("target sampling done"));
+Serial.print(F("targetTotal,"));
+Serial.print(F("lowerThreshold,"));
+Serial.print(F("upperThreshold,"));
+Serial.print(F("beaconThreshold,"));
 }
 
 //==========================================================================//
