@@ -128,7 +128,7 @@ const uint32_t NO_TURN_AFTER_START_MS = 1000;
 uint32_t followMotionStartTime = 0;
 
 // Beacon loss dtection from ML's offset based code
-const uint32_t LOST_TIMEOUT_MS = 200;
+const uint32_t LOST_TIMEOUT_MS = 500;
 uint32_t beaconLostStart = 0; 
 
 //==========================================================================//
