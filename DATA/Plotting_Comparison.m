@@ -1,6 +1,6 @@
 clear; clc; close all;
 
-filename = 'BUMP_STRAIGHT_TESTS.xlsx';   % <-- change this
+filename = 'LINE_STRAIGHT_TESTS.xlsx';   % <-- change this
 
 [~, sheetNames] = xlsfinfo(filename);
 
