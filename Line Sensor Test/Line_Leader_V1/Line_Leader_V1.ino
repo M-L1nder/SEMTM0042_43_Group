@@ -2,9 +2,9 @@
 // downward-facing line-sensor IR emitters turned ON so that
 // their light reflects off white paper and can be detected
 // by a nearby follower robot whose own emitters are OFF.
-//
+
 // Workflow (matches bump-sensor experiment):
-//   1.  Power on leader  → WAITING (emitters OFF, motors stopped)
+//   1.  Power on leader → WAITING (emitters OFF, motors stopped)
 //   2.  Power on follower → follower measures ambient baseline
 //   3.  Press leader button A → TARGET_BEACON (emitters ON, stationary)
 //   4.  Press follower button A → follower samples target signature
@@ -15,18 +15,9 @@
 //   9.  Leader auto-transitions → REVERSING (emitters ON, PID straight run)
 //  10.  After REVERSE_TIME_MS, leader stops and turns emitters OFF
 //  11.  Follower detects loss, stops
-//
-// Hardware assumptions:
-//   - Pololu 3Pi+ 32U4
-//   - Line emitter controlled via EMIT_PIN (defined in LineSensors.h)
-//     Driving EMIT_PIN LOW (OUTPUT) turns emitters ON;
-//     setting EMIT_PIN INPUT turns emitters OFF.
-//   - Motors.h, PID.h, Encoders.h present and unchanged from labsheets
-//   - count_e0 (right) and count_e1 (left) are ISR encoder counters
-// ============================================================
 
 #include "Motors.h"
-#include "LineSensors.h"   // only needed for EMIT_PIN and NUM_SENSORS
+#include "LineSensors.h"  
 #include "PID.h"
 #include "Encoders.h"
 #include "Kinematics.h"
@@ -36,37 +27,37 @@ PID_c    left_pid;
 PID_c    right_pid;
 Kinematics_c pose;
 
-// -------------------- PIN DEFINITIONS --------------------
-const int BUTTON_A_PIN = 14;   // toggle stationary emitter / target-beacon mode
-const int BUTTON_B_PIN = 30;   // start the reverse run
-const int BUTTON_C_PIN = 17;   // dump stored CSV after run
+// PIN DEFINITIONS
+const int BUTTON_A_PIN = 14; // toggle stationary emitter / target-beacon mode
+const int BUTTON_B_PIN = 30; // start the reverse run
+const int BUTTON_C_PIN = 17; // dump stored CSV after run
 
-// -------------------- MOTION PARAMETERS --------------------
-const uint32_t REVERSE_TIME_MS       = 5000;   // duration of the straight reverse run (ms)
-const float    REVERSE_SPEED_DEMAND  = -0.35f; // encoder-counts/ms demand (negative = reverse)
+// MOTION PARAMETERS
+const uint32_t REVERSE_TIME_MS = 5000; // duration of the straight reverse run (ms)
+const float REVERSE_SPEED_DEMAND = -0.35f; // encoder-counts/ms demand (negative = reverse)
 
-// -------------------- TIMING --------------------
-const uint32_t SPEED_EST_MS   = 10;    // wheel-speed estimation period (ms)
-const uint32_t CTRL_MS        = 20;    // PID update period (ms)
-const float    ALPHA           = 0.2f; // EWA smoothing for speed estimate
-const uint32_t PRESTART_MS    = 800;   // hold still with emitters ON before reversing
+// TIMING
+const uint32_t SPEED_EST_MS = 10; // wheel-speed estimation period (ms)
+const uint32_t CTRL_MS = 20; // PID update period (ms)
+const float ALPHA = 0.2f; // EWA smoothing for speed estimate
+const uint32_t PRESTART_MS = 800; // hold still with emitters ON before reversing
 
-// -------------------- PWM LIMITS --------------------
+// PWM LIMITS
 const int PWM_MAX_ABS = 60;
-const int PWM_FLOOR   = 18;   // minimum PWM when motor is demanded to move
+const int PWM_FLOOR = 18; // minimum PWM when motor is demanded to move
 
-// -------------------- PID GAINS --------------------
+// PID GAINS
 // Tuned for straight-line reverse; adjust if robot curves.
 const float DRIVE_KP = 15.0f;
-const float DRIVE_KI =  0.1f;
-const float DRIVE_KD =  0.0f;
+const float DRIVE_KI = 0.1f;
+const float DRIVE_KD = 0.0f;
 
-// -------------------- STATE MACHINE --------------------
+// STATE MACHINE
 enum LeaderState {
-  WAITING,        // idle; emitters OFF
-  TARGET_BEACON,  // stationary; emitters ON for follower target capture
-  PRESTART,       // stationary; emitters ON; brief hold before run
-  REVERSING       // moving backwards; emitters ON; PID straight-line control
+  WAITING, // idle; emitters OFF
+  TARGET_BEACON,// stationary; emitters ON for follower target capture
+  PRESTART, // stationary; emitters ON; brief hold before run
+  REVERSING // moving backwards; emitters ON; PID straight-line control
 };
 
 LeaderState state = WAITING;
@@ -80,7 +71,7 @@ bool lastButtonBState = HIGH;
 bool lastButtonCState = HIGH;
 
 // Timing
-uint32_t lastCtrlTime  = 0;
+uint32_t lastCtrlTime = 0;
 uint32_t lastSpeedTime = 0;
 
 uint32_t pose_ts = 0;
@@ -90,7 +81,7 @@ const uint32_t LOG_MS = 50;
 const int LOG_SIZE = 100;
 
 struct LogEntry {
-  int32_t x_centi;
+  int32_t x_centi; //Changed to int32 to avoid overflow in stored data
   int32_t y_centi;
   uint32_t t_ms;
 };
@@ -106,12 +97,12 @@ long  last_e0 = 0;
 long  last_e1 = 0;
 
 // Smoothed wheel speeds (encoder counts per ms)
-float right_speed    = 0.0f;
-float left_speed     = 0.0f;
-float last_speed_e0  = 0.0f;
-float last_speed_e1  = 0.0f;
+float right_speed = 0.0f;
+float left_speed = 0.0f;
+float last_speed_e0 = 0.0f;
+float last_speed_e1 = 0.0f;
 
-// -------------------- HELPER FUNCTIONS --------------------
+// HELPER FUNCTIONS
 
 int clampInt(int x, int lo, int hi) {
   if (x < lo) return lo;
@@ -195,7 +186,7 @@ void dumpLogCSV() {
 
 // Call frequently; updates speed estimate only when SPEED_EST_MS has elapsed.
 void updateWheelSpeedsIfNeeded() {
-  uint32_t now     = millis();
+  uint32_t now = millis();
   uint32_t elapsed = now - lastSpeedTime;
   if (elapsed < SPEED_EST_MS) return;
 
@@ -209,8 +200,8 @@ void updateWheelSpeedsIfNeeded() {
   float spd_e0 = (float)delta_e0 / (float)elapsed;
   float spd_e1 = (float)delta_e1 / (float)elapsed;
 
-  right_speed   = ALPHA * spd_e0 + (1.0f - ALPHA) * last_speed_e0;
-  left_speed    = ALPHA * spd_e1 + (1.0f - ALPHA) * last_speed_e1;
+  right_speed = ALPHA * spd_e0 + (1.0f - ALPHA) * last_speed_e0;
+  left_speed = ALPHA * spd_e1 + (1.0f - ALPHA) * last_speed_e1;
   last_speed_e0 = right_speed;
   last_speed_e1 = left_speed;
 }
@@ -244,7 +235,7 @@ const char* getStateName(LeaderState s) {
   }
 }
 
-// -------------------- SETUP --------------------
+// SETUP
 void setup() {
   Serial.begin(115200);
 
@@ -273,16 +264,16 @@ void setup() {
   motors.setPWM(0, 0);
 }
 
-// -------------------- LOOP --------------------
+// LOOP
 void loop() {
   uint32_t now = millis();
 
-  // ---- Read buttons (active LOW with internal pull-ups) ----
+  // Read buttons (active LOW with internal pull-ups)
   bool buttonAState = digitalRead(BUTTON_A_PIN);
   bool buttonBState = digitalRead(BUTTON_B_PIN);
   bool buttonCState = digitalRead(BUTTON_C_PIN);
 
-  // ---- Button A: toggle TARGET_BEACON while in WAITING ----
+  // Button A: toggle TARGET_BEACON while in WAITING
   if (lastButtonAState == HIGH && buttonAState == LOW) {
     delay(20); // debounce
     if (digitalRead(BUTTON_A_PIN) == LOW) {
@@ -295,7 +286,7 @@ void loop() {
     }
   }
 
-  // ---- Button B: begin run from WAITING only ----
+  // Button B: begin run from WAITING only
   if (lastButtonBState == HIGH && buttonBState == LOW) {
     delay(20); // debounce
     if (digitalRead(BUTTON_B_PIN) == LOW) {
@@ -307,7 +298,7 @@ void loop() {
     }
   }
 
-  // ---- Button C: dump stored CSV after the run ----
+  // Button C: dump stored CSV after the run
   if (lastButtonCState == HIGH && buttonCState == LOW) {
     delay(20); // debounce
     if (digitalRead(BUTTON_C_PIN) == LOW) {
@@ -318,17 +309,17 @@ void loop() {
     }
   }
 
-  // ---- Speed estimation (runs every loop) ----
+  // Speed estimation (runs every loop)
   updateWheelSpeedsIfNeeded();
   updatePoseIfNeeded();
 
-  // ---- State machine ----
+  // State machine
   if (state == WAITING) {
     emittersOff();
     motors.setPWM(0, 0);
   }
   else if (state == TARGET_BEACON) {
-    // Emitters ON, stationary — follower can sample target signature.
+    // Emitters ON, stationary - follower can sample target signature.
     emittersOn();
     motors.setPWM(0, 0);
   }
@@ -360,7 +351,7 @@ void loop() {
 
   logData();
 
-  // ---- Update button history ----
+  // Update button history
   lastButtonAState = buttonAState;
   lastButtonBState = buttonBState;
   lastButtonCState = buttonCState;

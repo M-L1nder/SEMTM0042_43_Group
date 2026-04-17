@@ -9,7 +9,7 @@ clear; clc; close all;
 
 % filename = 'XY_offset2.xlsx';   % <-- change this
 
-filename = 'BUMP_STRAIGHT_TESTS.xlsx';   % <-- change this
+filename = 'LINE_STRAIGHT_TESTS.xlsx';   % <-- change this
 
 
 [~, sheetNames] = xlsfinfo(filename);
