@@ -587,7 +587,7 @@ void loop() {
         cmdTurn = 0.0f;
       } else {
         // Primary term: hold heading straight
-        float headingError = wrapAngle(targetHeading - 0.0f);   // replace 0.0f with pose.a if your Kinematics exposes heading
+        float headingError = wrapAngle(targetHeading - pose.theta);
         float headingTurn = 0.0f;
       
         if (fabsf(headingError) > HEADING_DEADBAND) {
